@@ -19,7 +19,8 @@ fi
 
 STALE_MIN="${STALE_MIN:-15}"
 now=$(date +%s)
-mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1"; }
+# GNU form first: GNU stat accepts "-f %m" but prints filesystem info instead.
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }
 
 printf '%-22s %-15s %-9s %-7s %s\n' "AGENT" "MODEL/EFFORT" "STATE" "QUIET" "LAST UPDATE"
 for f in "$dir"/*.log; do

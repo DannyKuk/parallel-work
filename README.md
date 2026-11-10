@@ -114,6 +114,8 @@ Update with `git -C ~/.claude/skills/parallel-work pull`. New sessions pick up c
 
 Requires `git` and the [GitHub CLI](https://cli.github.com) (`gh`), logged in to the repo you're working on.
 
+**Windows:** works through Git Bash, which Claude Code on Windows already requires. Git Bash's `ln -s` copies files instead of linking them, so copy the agents with `cp` and copy them again after each update.
+
 ## Usage
 
 The skill activates only when you ask for parallel work. A plain "let's continue" leaves it out.
