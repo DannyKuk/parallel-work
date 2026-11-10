@@ -11,6 +11,7 @@
   <a href="#install"><b>Install</b></a> &nbsp;·&nbsp;
   <a href="#routing">Routing</a> &nbsp;·&nbsp;
   <a href="#status">Status</a> &nbsp;·&nbsp;
+  <a href="#review">Review</a> &nbsp;·&nbsp;
   <a href="#guardrails">Guardrails</a> &nbsp;·&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
   <a href="#customize">Customize</a>
@@ -59,6 +60,17 @@ Every subagent appends a line to `.parallel-work/agents/<ticket>.log` at each mi
 
 An agent with no log line for 15 minutes shows as `STALE?`. The main session then checks that agent's working copy for recent changes, so you hear whether it's still busy or actually stuck.
 
+## Review
+
+<img src=".github/readme/review.png" alt="parallel-reviewer on opus high returns CHANGES: limit over 100 is clamped but the ticket says 400; sent back to the implementer" width="100%">
+
+Implementers run on the cheapest model that fits. Every code change is then checked by a fresh `parallel-reviewer` on **`opus · high`**, so tokens are saved on the long work but not on correctness. Docs and typo tickets (`haiku` tier) skip review.
+
+- **The reviewer judges the code, not the story.** It gets the ticket's acceptance criteria and the diff, never the implementer's explanation. A "friendlier" take on a criterion counts as a finding.
+- **It can't edit anything.** It has no edit tools and only replies `PASS` or `CHANGES` with `file:line` findings.
+- **Findings go back to the original implementer**, which still has its context, for one fix round. Then the same reviewer checks again.
+- **Two rejections and it stops.** You get the open findings and the unpushed branch, and you decide what happens next.
+
 ## Guardrails
 
 <img src=".github/readme/gate.png" alt="A question: Re-run #43 at xhigh? with options yes, or clarify the ticket first" width="100%">
@@ -66,8 +78,7 @@ An agent with no log line for 15 minutes shows as `STALE?`. The main session the
 - **`xhigh` and `max` need your yes, every time.** When an `opus · high` run fails, Claude says what it learned and asks whether to spend several times the tokens, or whether you'd rather clarify the ticket. It keeps the other tickets moving while it waits.
 - **At most 5 subagents at once**, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest are queued and start as slots free up.
 - **Each agent gets its own git worktree**, so parallel edits never collide.
-- **Every code change gets an `opus · high` review before it ships.** The reviewer sees only the acceptance criteria and the diff, not the implementer's explanation. Its findings go back to the original agent for one fix round, and if the second review still fails, you hear about it.
-- **Nothing is pushed before the review passes.** Implementers only commit. The main session pushes after the review, and opens a PR only if you've asked for PRs (in the session or in `CLAUDE.md`).
+- **Nothing is pushed before the review passes.** Implementers only commit. The main session pushes, and opens a PR only if you've asked for PRs (in the session or in `CLAUDE.md`).
 
 ## Agent types
 
