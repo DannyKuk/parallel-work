@@ -64,19 +64,7 @@ An agent with no log line for 15 minutes shows as `STALE?`. The main session the
 
 ## How it works
 
-```mermaid
-flowchart LR
-    ask(["work in parallel"]) --> pick["Pick tickets<br/>no overlapping code"]
-    pick --> route["Route each ticket<br/>model + effort"]
-    route --> run["Run up to 5 agents<br/>one worktree each"]
-    run -- milestones --> logs[("agent logs")]
-    logs --> status(["status?"])
-    run --> done{"Finished?"}
-    done -- verified --> next["Next queued ticket"]
-    next --> run
-    done -- failed --> up["One tier up<br/>max opus · high"]
-    up -. still failing .-> you(["Ask you<br/>about xhigh"])
-```
+<img src=".github/readme/flow.png" alt="How it works: you ask, pick tickets, route each to a model and effort, run up to 5 agents, verify. Agents log while running; failures go one tier up, then ask you about xhigh" width="100%">
 
 ## Install
 
