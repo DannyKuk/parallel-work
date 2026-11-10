@@ -2,7 +2,7 @@
 
 A Claude Code skill for working through a ticket backlog with parallel subagents. It fixes two problems:
 
-1. **Every subagent runs on the main session's model and effort.** By default, Claude leaves `model` and `effort` unset when it spawns agents, so a typo fix gets the same Opus/high treatment as a deadlock hunt. With this skill, the main agent routes each ticket to a model and effort level (`haiku`/`sonnet`/`opus`, `low` … `xhigh`), tells you its choices, and moves a ticket up a tier if it fails. `xhigh` and `max` are never chosen without your explicit approval.
+1. **Every subagent runs on the main session's model and effort.** By default, Claude leaves `model` and `effort` unset when it spawns agents, so a typo fix gets the same Opus/high treatment as a deadlock hunt. With this skill, the main agent routes each ticket to a model and effort level (`haiku`/`sonnet`/`opus`, `low` … `xhigh`), tells you its choices, and moves a ticket up a tier if it fails. `xhigh` and `max` are never chosen without your explicit approval. At most 5 subagents run at once unless you say otherwise ("use 8 subagents", "as many as possible"); the rest wait in a queue.
 2. **Long-running agents are a black box.** Each subagent appends one-line milestones to `.parallel-work/agents/<ticket>.log`. When you ask "status?", the main agent runs `scripts/status.sh` and reports what the logs actually say, including agents that have gone quiet.
 
 ## Install

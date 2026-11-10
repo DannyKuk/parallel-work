@@ -15,7 +15,7 @@ This skill is your explicit instruction to set `model` and `effort` on every Age
 
 1. `gh issue list --state open --json number,title,labels,assignees,body --limit 30`. Skip issues assigned to someone else or labeled blocked/in-progress.
 2. Parallel when tickets touch **disjoint files/modules** (check with a quick grep, not just the titles). If ticket B builds on code ticket A creates, or both touch the same files: **one agent does A then B**, one commit per ticket. That avoids B's worktree starting without A's code.
-3. Batch size: at most 4 code-writing agents at once unless the user says otherwise.
+3. **At most 5 subagents running at once**, counting every kind (implementers, reviewers, lookups). Use more only if the user names a number ("use 6 subagents") or says "as many as possible". More tickets than free slots: list the rest as `queued` in the plan, and start the next one each time an agent finishes.
 4. A ticket you can finish in a couple of tool calls (typo, one-line config): do it yourself while the agents run, with no agent and no log.
 
 ## 2. Route each ticket
@@ -81,7 +81,7 @@ milestones in your final report instead.
 - **Status request** ("status?", "how far are they?"): run `bash <this skill's base dir>/scripts/status.sh` from the main checkout (it finds `.parallel-work/agents` via git; an optional argument overrides the dir). Report from its output: one row per agent with model/effort, state, last update, minutes quiet, plus tickets you did inline or that are queued. Never say "probably" about an agent's progress; the log either shows it or it doesn't.
 - **`STALE?`** (no log line for 15+ minutes): check activity with `git -C <worktree> status --short` and `git -C <worktree> diff --stat`. Changes still appearing: report it as working, just not logging. Nothing for 30+ minutes: tell the user and offer to stop it and re-dispatch one tier up.
 - **On each completion notification:** verify the claim yourself (run the tests on its branch, check the PR exists if one was promised), then give a one-line update plus the status table. For `opus`-tier tickets or large diffs, also dispatch a reviewer (routing table, last row) before calling it done. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
-- When a batch finishes and the user asked to continue, start the next batch at step 1.
+- When a slot frees up, start the next queued ticket (route it first). When the queue is empty and the user asked to continue, go back to step 1.
 
 ## Common Mistakes
 
