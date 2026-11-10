@@ -28,11 +28,12 @@ This skill is your explicit instruction to set `model` and `effort` on every Age
 | Clear spec but tricky logic, many files, or unfamiliar subsystem | `sonnet` | `high` |
 | Ambiguous spec, design/architecture, cross-cutting refactor, security, concurrency, data migration, **unknown root cause** | `opus` | `high` |
 | Already failed once at a lower tier | one tier up (`haiku`→`sonnet`→`opus`, up to `high`) | |
-| Reviewing a finished agent's diff | `sonnet` `high` (`opus` `high` if risky) | |
+| Reviewing a finished agent's diff (see section 5) | `opus` | `high` |
 
 - **`xhigh` and `max` need the user's explicit yes, every time.** They cost several times more tokens, and a failed `opus`/`high` run usually means the ticket is unclear, not that more thinking is needed. Propose it in one line (what failed, what the agent learned, why you think xhigh would help, or what question the user could answer instead). Keep the other tickets moving while you wait. Never escalate past `opus`/`high` on your own.
 - When unsure between two rows, take the higher one. A failed cheap run costs more than one right-sized run.
-- Never use `subagent_type: "fork"` for routed work: forks ignore `model` and `effort`. Use `general-purpose` with a full brief.
+- **Agent types:** implementers use `subagent_type: "parallel-implementer"` and reviewers use `"parallel-reviewer"` (read-only). Both ship in this skill's `agents/` folder. If they aren't in your available agent types, use `general-purpose` with the same briefs, and tell the user once: `mkdir -p ~/.claude/agents && ln -sf <this skill's base dir>/agents/*.md ~/.claude/agents/` (restart Claude Code if that folder is new).
+- Always pass `model` and `effort` on the call: they override the agent file's defaults. Never use `subagent_type: "fork"` for routed work: forks ignore `model` and `effort`.
 
 Before dispatching, show the user the plan as a table:
 
@@ -60,11 +61,11 @@ For each agent, write the log header **before** dispatching it (slug = `<issue>-
 echo "# ticket=#42 model=sonnet effort=medium dispatched=$(date +%H:%M)" > "$ROOT/.parallel-work/agents/42-orders-pagination.log"
 ```
 
-Send all agents of the batch in **one message** (they run in the background automatically), each with `subagent_type: "general-purpose"`, `model`, `effort`, and `isolation: "worktree"` for code-writing agents. Every brief contains these parts, in order:
+Send all agents of the batch in **one message** (they run in the background automatically), each with `subagent_type: "parallel-implementer"`, `model`, `effort`, and `isolation: "worktree"`. Every brief contains these parts, in order:
 
 1. Goal: issue number, title, the acceptance criteria copied from the issue
 2. Context: relevant files, patterns to follow, what is already ruled out, which paths other agents own (hands off)
-3. Done means: tests pass, committed on branch `issue-<n>-<slug>`. Add "push and open a PR (`Closes #<n>`)" only if the user or CLAUDE.md has asked for PRs. Otherwise the branch is reported ready to push.
+3. Done means: tests pass, committed on branch `issue-<n>-<slug>`. Don't push: the main session pushes after review.
 4. The progress-log block below, with the **absolute** log path filled in
 
 ```
@@ -81,8 +82,31 @@ milestones in your final report instead.
 
 - **Status request** ("status?", "how far are they?"): run `bash <this skill's base dir>/scripts/status.sh` from the main checkout (it finds `.parallel-work/agents` via git; an optional argument overrides the dir). Report from its output: one row per agent with model/effort, state, last update, minutes quiet, plus tickets you did inline or that are queued. Never say "probably" about an agent's progress; the log either shows it or it doesn't.
 - **`STALE?`** (no log line for 15+ minutes): check activity with `git -C <worktree> status --short` and `git -C <worktree> diff --stat`. Changes still appearing: report it as working, just not logging. Nothing for 30+ minutes: tell the user and offer to stop it and re-dispatch one tier up.
-- **On each completion notification:** verify the claim yourself (run the tests on its branch, check the PR exists if one was promised), then give a one-line update plus the status table. For `opus`-tier tickets or large diffs, also dispatch a reviewer (routing table, last row) before calling it done. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
+- **On each completion notification:** run the tests inside its worktree, and check that `git -C <worktree> diff --stat <base>...HEAD` stays within the ticket's scope (`<base>` = the default branch, from `gh repo view --json defaultBranchRef`). If its own report admits it skipped or changed an acceptance criterion, send it straight back with SendMessage; don't spend a review on a known gap. Give a one-line update plus the status table, then go to section 5. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
 - When a slot frees up, start the next queued ticket (route it first). When the queue is empty and the user asked to continue, go back to step 1.
+
+## 5. Review, then ship
+
+Every code-changing ticket gets a fresh reviewer at **`opus` · `high`**, no matter which tier implemented it. A cheap implementer plus a strong reviewer saves tokens on the long work without saving them on correctness. Skip review only for `haiku`-tier work (docs, typos): after the scope check, ship it as on PASS.
+
+Don't read the diff yourself: that fills your context and you're biased by the brief you wrote. Dispatch it with `subagent_type: "parallel-reviewer"`, `model: "opus"`, `effort: "high"`. The reviewer counts toward the 5-agent cap, gets its own log (`<slug>-review.log`, header `# ticket=#<n>-review model=opus effort=high`), and needs no worktree. Its brief, in order:
+
+```
+REVIEW #<n> <title>. You review; do not edit files.
+Acceptance criteria: <copied from the issue>
+Diff: git -C <ABS_WORKTREE> diff <base>...HEAD   (branch issue-<n>-<slug>)
+Check: acceptance criteria met, correctness bugs, missing or weak tests,
+changes outside the ticket's scope, security and concurrency issues.
+Reply: first line PASS or CHANGES, then at most 10 findings as
+`file:line: problem; why it matters`. Real defects only, no style nits.
+<progress-log block from section 3, with the review log path>
+```
+
+Give the reviewer the acceptance criteria and the diff, **not** the implementer's summary: it should judge the code, not the story.
+
+- **PASS (ship):** if the user or CLAUDE.md asked for pushes or PRs, push the branch and open the PR (`Closes #<n>`). Otherwise report the branch as ready to push. Either way, then `git worktree remove <worktree>` (the branch and its commits stay).
+- **CHANGES:** send the findings to the **original implementer** with SendMessage (it still has its context), and have it fix, commit and report. Its fix-round lines go in the same log (a line after DONE just shows it as running again). Then send the new commits to the **same reviewer** with SendMessage to re-check.
+- **Any CHANGES on the re-check:** stop and tell the user, with the open findings, the unpushed branch, and the options: they clarify, you re-dispatch the implementer one tier up, or they take it over. No third round without their answer.
 
 ## Common Mistakes
 
@@ -94,3 +118,6 @@ milestones in your final report instead.
 | Answering status from memory | Run `status.sh` first |
 | Two agents editing the same module | Run them one after another |
 | Auto-escalating to `xhigh` after a failure | Ask the user first; often the ticket needs clarifying instead |
+| Reading diffs yourself, or letting the implementer self-review | Dispatch the `opus` · `high` reviewer |
+| Passing the implementer's summary to the reviewer | Acceptance criteria and diff only |
+| Pushing or opening a PR before review passes | Implementers never push; you push after PASS |

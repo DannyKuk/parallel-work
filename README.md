@@ -17,7 +17,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DannyKuk/parallel-work/releases/latest"><img src="https://img.shields.io/github/v/release/DannyKuk/parallel-work?style=flat-square&color=d97757&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/Claude_Code-skill-5fd7d7?style=flat-square" alt="Claude Code skill">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/DannyKuk/parallel-work?style=flat-square&color=b7a6f5" alt="MIT license"></a>
 </p>
@@ -32,6 +31,7 @@ https://github.com/user-attachments/assets/1b3c2bf0-adda-4631-a1ca-50f1383e6352
 | **A deadlock with no known cause** | The same as the docs ticket | `opus · high` |
 | **"How far are the agents?"** | Nobody knows until they finish | A table from the agents' own logs |
 | **An agent that went quiet** | Goes unnoticed | Flagged `STALE?` after 15 minutes |
+| **Code review** | The agent checks its own work, if anyone does | A fresh `opus · high` reviewer on every code change |
 | **Escalating to `xhigh`** | Up to the session | Only with your yes |
 
 ## Routing
@@ -47,8 +47,9 @@ Before dispatching anything, the main session picks a model and effort level for
 | Clear spec, but tricky logic or many files | `sonnet · high` |
 | Ambiguous spec, architecture, security, concurrency, unknown root cause | `opus · high` |
 | Failed once at a lower tier | one tier up, at most `opus · high` |
+| **Reviewing any finished code change** | `opus · high` |
 
-When it's unsure between two rows, it takes the higher one, because a failed cheap run costs more than one right-sized run. Tickets that touch the same code, or build on each other, go to one agent in order.
+When it's unsure between two rows, it takes the higher one, because a failed cheap run costs more than one right-sized run. Reviews always run on `opus · high`: the cheap model does the long work, and the strong one checks it. Tickets that touch the same code, or build on each other, go to one agent in order.
 
 ## Status
 
@@ -65,8 +66,17 @@ An agent with no log line for 15 minutes shows as `STALE?`. The main session the
 - **`xhigh` and `max` need your yes, every time.** When an `opus · high` run fails, Claude says what it learned and asks whether to spend several times the tokens, or whether you'd rather clarify the ticket. It keeps the other tickets moving while it waits.
 - **At most 5 subagents at once**, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest are queued and start as slots free up.
 - **Each agent gets its own git worktree**, so parallel edits never collide.
-- **Agents push and open PRs only if you've asked for that**, in the session or in `CLAUDE.md`. Otherwise they report a branch ready to push.
-- **Finished work is checked before it's called done.** Claude runs the tests on the agent's branch, and big or risky diffs get a separate review agent.
+- **Every code change gets an `opus · high` review before it ships.** The reviewer sees only the acceptance criteria and the diff, not the implementer's explanation. Its findings go back to the original agent for one fix round, and if the second review still fails, you hear about it.
+- **Nothing is pushed before the review passes.** Implementers only commit. The main session pushes after the review, and opens a PR only if you've asked for PRs (in the session or in `CLAUDE.md`).
+
+## Agent types
+
+The skill ships two subagent types, so you can see in the UI who's doing what:
+
+| Agent | Does | Defaults | Tools |
+|---|---|---|---|
+| [`parallel-implementer`](agents/parallel-implementer.md) | One ticket, in its own git worktree. Commits, never pushes. | `sonnet · medium`, overridden per ticket | All |
+| [`parallel-reviewer`](agents/parallel-reviewer.md) | Checks a finished diff against the ticket. Replies PASS or CHANGES. | `opus · high` | Read, Grep, Glob, Bash (no editing) |
 
 ## How it works
 
@@ -76,13 +86,16 @@ An agent with no log line for 15 minutes shows as `STALE?`. The main session the
 
 Ask Claude Code:
 
-> Install the skill from https://github.com/DannyKuk/parallel-work
+> Install the skill from https://github.com/DannyKuk/parallel-work, including its agents
 
-Or clone it into your skills folder:
+Or clone it into your skills folder and link the two agent types:
 
 ```sh
 git clone https://github.com/DannyKuk/parallel-work ~/.claude/skills/parallel-work
+mkdir -p ~/.claude/agents && ln -sf ~/.claude/skills/parallel-work/agents/*.md ~/.claude/agents/
 ```
+
+Restart Claude Code if `~/.claude/agents/` didn't exist before. Without the agents, the skill still works using `general-purpose` subagents.
 
 Update with `git -C ~/.claude/skills/parallel-work pull`. New sessions pick up changes; running ones keep the version they started with.
 
