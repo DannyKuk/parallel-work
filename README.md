@@ -22,7 +22,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/DannyKuk/parallel-work?style=flat-square&color=b7a6f5" alt="MIT license"></a>
 </p>
 
-https://github.com/user-attachments/assets/1b3c2bf0-adda-4631-a1ca-50f1383e6352
+
+https://github.com/user-attachments/assets/f3cecd4e-3ba9-40cd-a97e-10a52a82e118
+
 
 <br>
 
