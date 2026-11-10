@@ -16,6 +16,12 @@
   <a href="#customize">Customize</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/DannyKuk/parallel-work/releases/latest"><img src="https://img.shields.io/github/v/release/DannyKuk/parallel-work?style=flat-square&color=d97757&label=release" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Claude_Code-skill-5fd7d7?style=flat-square" alt="Claude Code skill">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/DannyKuk/parallel-work?style=flat-square&color=b7a6f5" alt="MIT license"></a>
+</p>
+
 https://github.com/user-attachments/assets/1b3c2bf0-adda-4631-a1ca-50f1383e6352
 
 <br>
@@ -121,3 +127,7 @@ Yes. Every subagent gets its model and effort set explicitly, so a hard ticket c
 <br>
 Some sandbox setups block writes outside the agent's worktree. The agent then keeps working and lists its milestones in its final report, and the main session falls back to checking the worktree for changes.
 </details>
+
+## License
+
+[MIT](LICENSE). Contributions and issues are welcome.

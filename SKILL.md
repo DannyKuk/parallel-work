@@ -1,6 +1,7 @@
 ---
 name: parallel-work
 description: Use only when the user explicitly asks to work in parallel or to use subagents for tickets/issues (e.g. "work in parallel when possible", "spin up agents for these issues"), or asks for status on agents started this way. Not for a plain "continue", "keep going", or working on the next ticket alone.
+license: MIT
 ---
 
 # Parallel Work
