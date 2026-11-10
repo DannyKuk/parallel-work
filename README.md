@@ -1,59 +1,82 @@
-# parallel-work
+<p align="center">
+  <img src=".github/readme/banner.png" alt="parallel-work: right-sized subagents for Claude Code, with progress you can check" width="100%">
+</p>
 
-A [Claude Code](https://claude.com/claude-code) skill for working through a GitHub backlog with parallel subagents. Each ticket gets a model and effort level that fit the job, and every agent keeps a progress log, so "status?" gets a real answer.
+<p align="center">
+  A <a href="https://claude.com/claude-code">Claude Code</a> skill for working through a GitHub backlog with parallel subagents.<br>
+  Each ticket gets the model and effort it needs, and every agent keeps a log you can check.
+</p>
 
-<!-- demo video: drag out/demo.mp4 into a PR or issue on GitHub and paste the user-attachments URL on its own line here -->
+<p align="center">
+  <a href="#install"><b>Install</b></a> &nbsp;·&nbsp;
+  <a href="#routing">Routing</a> &nbsp;·&nbsp;
+  <a href="#status">Status</a> &nbsp;·&nbsp;
+  <a href="#guardrails">Guardrails</a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="#customize">Customize</a>
+</p>
 
-## Why
+<!-- demo video: drag the mp4 into a PR or issue on GitHub and paste the user-attachments URL on its own line here -->
 
-When Claude Code fans out work to subagents, each one inherits the main session's model and effort unless told otherwise. If your session runs Opus at high effort, so does the docs ticket, the same as the deadlock hunt. Long-running agents also don't report progress, so asking the main session how far they are gets a shrug.
+<br>
 
-## What it does
-
-**Routes each ticket to a model and effort level.** The main session decides per ticket and shows you the plan before it dispatches:
-
-```
-#41 Document the env vars → haiku / low       (docs)
-#42 Orders pagination     → sonnet / medium   (clear AC, existing pattern)
-#43 Queue deadlock        → opus / high       (unknown root cause)
-#44 Customers pagination  → same agent as #42 (reuses the paginator #42 creates)
-```
-
-| Ticket looks like | Model | Effort |
+|  | Without it | With parallel-work |
 |---|---|---|
-| Lookup, triage, docs, typo, rename | `haiku` | `low` |
-| Clear acceptance criteria, follows an existing pattern | `sonnet` | `medium` |
-| Clear spec, but tricky logic or many files | `sonnet` | `high` |
-| Ambiguous spec, architecture, security, concurrency, unknown root cause | `opus` | `high` |
-| Failed once at a lower tier | one tier up, at most `opus` / `high` | |
+| **A docs ticket** | Runs on your session's model and effort, e.g. Opus · high | `haiku · low` |
+| **A deadlock with no known cause** | The same as the docs ticket | `opus · high` |
+| **"How far are the agents?"** | Nobody knows until they finish | A table from the agents' own logs |
+| **An agent that went quiet** | Goes unnoticed | Flagged `STALE?` after 15 minutes |
+| **Escalating to `xhigh`** | Up to the session | Only with your yes |
 
-**Logs progress you can check.** Every subagent appends one line per milestone to `.parallel-work/agents/<ticket>.log`. Ask "status?" and the main session runs [`scripts/status.sh`](scripts/status.sh):
+## Routing
 
+<img src=".github/readme/routing.png" alt="Four tickets routed: docs to haiku low, pagination to sonnet medium, deadlock to opus high, a dependent ticket to the same agent as #42" width="100%">
+
+Before dispatching anything, the main session picks a model and effort level for each ticket and shows you the plan:
+
+| Ticket looks like | Model · effort |
+|---|---|
+| Lookup, triage, docs, typo, rename | `haiku · low` |
+| Clear acceptance criteria, follows an existing pattern | `sonnet · medium` |
+| Clear spec, but tricky logic or many files | `sonnet · high` |
+| Ambiguous spec, architecture, security, concurrency, unknown root cause | `opus · high` |
+| Failed once at a lower tier | one tier up, at most `opus · high` |
+
+When it's unsure between two rows, it takes the higher one, because a failed cheap run costs more than one right-sized run. Tickets that touch the same code, or build on each other, go to one agent in order.
+
+## Status
+
+<img src=".github/readme/status.png" alt="status? answered with a table of agents, their model and effort, state, minutes quiet and last log line" width="100%">
+
+Every subagent appends a line to `.parallel-work/agents/<ticket>.log` at each milestone. Ask **status?** and the main session runs [`scripts/status.sh`](scripts/status.sh) and reports what the logs say.
+
+An agent with no log line for 15 minutes shows as `STALE?`. The main session then checks that agent's working copy for recent changes, so you hear whether it's still busy or actually stuck.
+
+## Guardrails
+
+<img src=".github/readme/gate.png" alt="A question: Re-run #43 at xhigh? with options yes, or clarify the ticket first" width="100%">
+
+- **`xhigh` and `max` need your yes, every time.** When an `opus · high` run fails, Claude says what it learned and asks whether to spend several times the tokens, or whether you'd rather clarify the ticket. It keeps the other tickets moving while it waits.
+- **At most 5 subagents at once**, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest are queued and start as slots free up.
+- **Each agent gets its own git worktree**, so parallel edits never collide.
+- **Agents push and open PRs only if you've asked for that**, in the session or in `CLAUDE.md`. Otherwise they report a branch ready to push.
+- **Finished work is checked before it's called done.** Claude runs the tests on the agent's branch, and big or risky diffs get a separate review agent.
+
+## How it works
+
+```mermaid
+flowchart LR
+    ask(["work in parallel"]) --> pick["Pick tickets<br/>no overlapping code"]
+    pick --> route["Route each ticket<br/>model + effort"]
+    route --> run["Run up to 5 agents<br/>one worktree each"]
+    run -- milestones --> logs[("agent logs")]
+    logs --> status(["status?"])
+    run --> done{"Finished?"}
+    done -- verified --> next["Next queued ticket"]
+    next --> run
+    done -- failed --> up["One tier up<br/>max opus · high"]
+    up -. still failing .-> you(["Ask you<br/>about xhigh"])
 ```
-AGENT                  MODEL/EFFORT    STATE     QUIET   LAST UPDATE
-41-env-docs            haiku/low       done      9m      16:31 | DONE | branch issue-41-env-docs
-42-orders-pagination   sonnet/medium   running   2m      16:38 | verifying | 9 new tests pass
-43-queue-deadlock      opus/high       STALE?    18m     16:22 | reproduce | hang in 3/10 runs
-```
-
-An agent with no log line for 15 minutes shows as `STALE?`. The main session then checks the agent's working copy for recent changes and tells you whether it's still working.
-
-**Keeps you in charge of the expensive stuff.**
-
-- `xhigh` and `max` are never used without your yes. When an `opus` / `high` run fails, Claude says what it learned and asks whether to escalate or whether you'd rather clarify the ticket.
-- At most 5 subagents run at once, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest wait in a queue and start as slots free up.
-- Tickets that touch the same code, or build on each other, go to one agent in order, never to two agents in parallel.
-- Agents push and open PRs only if you've asked for that (in the session or in `CLAUDE.md`). Otherwise they report a branch ready to push.
-
-## Usage
-
-The skill only activates when you ask for parallel work. A plain "let's continue" doesn't trigger it.
-
-> Let's continue with our tickets, work in parallel when possible
-
-> Do #12, #13 and #14 at the same time with subagents
-
-> status?
 
 ## Install
 
@@ -71,10 +94,42 @@ Update with `git -C ~/.claude/skills/parallel-work pull`. New sessions pick up c
 
 Requires `git` and the [GitHub CLI](https://cli.github.com) (`gh`), logged in to the repo you're working on.
 
+## Usage
+
+The skill activates only when you ask for parallel work. A plain "let's continue" leaves it out.
+
+```text
+> Let's continue with our tickets, work in parallel when possible
+> Do #12, #13 and #14 at the same time with subagents
+> status?
+```
+
 ## Customize
 
-- **Routing:** edit the table in [`SKILL.md`](SKILL.md), section 2, for example to send anything touching auth to `opus`.
-- **Concurrency cap:** change the "At most 5 subagents" rule in section 1.
-- **Stale threshold:** `STALE_MIN=20 bash scripts/status.sh` (default 15 minutes).
+| What | Where |
+|---|---|
+| Routing rules | [`SKILL.md`](SKILL.md), section 2. For example, send anything touching auth to `opus`. |
+| Concurrency cap | [`SKILL.md`](SKILL.md), section 1, "At most 5 subagents" |
+| Stale threshold | `STALE_MIN=20 bash scripts/status.sh` (default 15 minutes) |
 
 Logs live in `.parallel-work/` at the repo root. The skill adds that folder to `.git/info/exclude`, so it never gets committed.
+
+## FAQ
+
+<details>
+<summary><b>Why not run everything on Opus?</b></summary>
+<br>
+You can, by editing the routing table. Smaller models finish easy tickets faster and use much less of your usage limits, so the budget goes to the tickets that need it.
+</details>
+
+<details>
+<summary><b>My session runs on Sonnet. Does routing still work?</b></summary>
+<br>
+Yes. Every subagent gets its model and effort set explicitly, so a hard ticket can still go to Opus while your main session stays on Sonnet.
+</details>
+
+<details>
+<summary><b>What if an agent can't write its log?</b></summary>
+<br>
+Some sandbox setups block writes outside the agent's worktree. The agent then keeps working and lists its milestones in its final report, and the main session falls back to checking the worktree for changes.
+</details>
