@@ -1,6 +1,6 @@
 ---
 name: parallel-work
-description: Use when the user asks to continue with tickets or issues, work through a GitHub backlog, or "work in parallel when possible"; when dispatching several subagents for implementation work; or when the user asks for a status update or progress on running subagents.
+description: Use only when the user explicitly asks to work in parallel or to use subagents for tickets/issues (e.g. "work in parallel when possible", "spin up agents for these issues"), or asks for status on agents started this way. Not for a plain "continue", "keep going", or working on the next ticket alone.
 ---
 
 # Parallel Work
@@ -42,7 +42,7 @@ Before dispatching, show the user the plan as a table:
 #41 README typo         → me, inline
 ```
 
-Then dispatch in the same turn. "Continue with our tickets" is the go-ahead, so don't wait for a yes.
+Then dispatch in the same turn. The user's request to work in parallel is the go-ahead, so don't wait for a yes.
 
 ## 3. Set up logs, then dispatch
 

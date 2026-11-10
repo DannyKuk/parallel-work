@@ -15,6 +15,8 @@ Then in any repo with GitHub issues:
 
 > Let's continue with our tickets, work in parallel when possible
 
+It only activates when you explicitly ask for parallel work or subagents. A plain "let's continue" doesn't trigger it.
+
 Before it dispatches anything, you'll see a routing table like this:
 
 ```
