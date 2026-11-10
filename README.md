@@ -16,7 +16,7 @@
   <a href="#customize">Customize</a>
 </p>
 
-<!-- demo video: drag the mp4 into a PR or issue on GitHub and paste the user-attachments URL on its own line here -->
+https://github.com/user-attachments/assets/1b3c2bf0-adda-4631-a1ca-50f1383e6352
 
 <br>
 
