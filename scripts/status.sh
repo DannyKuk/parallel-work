@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Summarize subagent progress logs written under the parallel-work skill.
 # Usage: bash status.sh [log-dir]   (default: <git root>/.parallel-work/agents)
+# Logs moved into a subfolder (e.g. agents/done/) are not listed.
 # Each log: line 1 is a "# key=value ..." header written by the main agent;
 # later lines are "HH:MM | phase | note" appended by the subagent.
 set -u
@@ -12,7 +13,7 @@ if [ -z "$dir" ]; then
   dir="$root/.parallel-work/agents"
 fi
 
-if [ ! -d "$dir" ] || [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
+if [ ! -d "$dir" ] || [ -z "$(find "$dir" -maxdepth 1 -name '*.log' 2>/dev/null)" ]; then
   echo "No agent logs in $dir"
   exit 0
 fi
@@ -22,14 +23,26 @@ now=$(date +%s)
 # GNU form first: GNU stat accepts "-f %m" but prints filesystem info instead.
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }
 
-printf '%-22s %-15s %-9s %-7s %s\n' "AGENT" "MODEL/EFFORT" "STATE" "QUIET" "LAST UPDATE"
+# Drop control bytes (NUL, backspace, ...) before grep sees the log: zsh's echo
+# turns a "\0" in a note into a real NUL, and BSD grep then calls the file binary.
+clean() { LC_ALL=C tr -d '\000-\010\013-\037\177' < "$1"; }
+
+# Size the name column to the longest log name (review logs run long).
+w=22
+for f in "$dir"/*.log; do
+  [ -e "$f" ] || continue
+  n="$(basename "$f" .log)"
+  [ "${#n}" -gt "$w" ] && w="${#n}"
+done
+
+printf "%-${w}s %-15s %-9s %-7s %s\n" "AGENT" "MODEL/EFFORT" "STATE" "QUIET" "LAST UPDATE"
 for f in "$dir"/*.log; do
   [ -e "$f" ] || continue
   name="$(basename "$f" .log)"
-  header="$(head -n 1 "$f")"
+  header="$(clean "$f" | head -n 1)"
   model="$(sed -n 's/.*model=\([^ ]*\).*/\1/p' <<<"$header")"
   effort="$(sed -n 's/.*effort=\([^ ]*\).*/\1/p' <<<"$header")"
-  last="$(grep -v '^#' "$f" | grep -v '^[[:space:]]*$' | tail -n 1)"
+  last="$(clean "$f" | grep -v '^#' | grep -v '^[[:space:]]*$' | tail -n 1)"
   [ -n "$last" ] || last="(no update yet)"
   quiet=$(( (now - $(mtime "$f")) / 60 ))
 
@@ -43,5 +56,5 @@ for f in "$dir"/*.log; do
     state="STALE?"
   fi
 
-  printf '%-22s %-15s %-9s %-7s %s\n' "$name" "${model:-?}/${effort:-?}" "$state" "${quiet}m" "$last"
+  printf "%-${w}s %-15s %-9s %-7s %s\n" "$name" "${model:-?}/${effort:-?}" "$state" "${quiet}m" "$last"
 done

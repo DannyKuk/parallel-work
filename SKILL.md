@@ -55,6 +55,13 @@ ROOT="$(git rev-parse --show-toplevel)"; mkdir -p "$ROOT/.parallel-work/agents"
 grep -qx '.parallel-work/' "$ROOT/.git/info/exclude" || echo '.parallel-work/' >> "$ROOT/.git/info/exclude"
 ```
 
+Logs left over from an earlier batch would show up in every status check, so move them out of the way when you start a new batch (`status.sh` skips subfolders):
+
+```bash
+mkdir -p "$ROOT/.parallel-work/agents/done"
+find "$ROOT/.parallel-work/agents" -maxdepth 1 -name '*.log' -exec mv {} "$ROOT/.parallel-work/agents/done/" \;
+```
+
 For each agent, write the log header **before** dispatching it (slug = `<issue>-<short-name>`):
 
 ```bash
@@ -65,12 +72,13 @@ Send all agents of the batch in **one message** (they run in the background auto
 
 1. Goal: issue number, title, the acceptance criteria copied from the issue
 2. Context: relevant files, patterns to follow, what is already ruled out, which paths other agents own (hands off)
-3. Done means: tests pass, committed on branch `issue-<n>-<slug>`. Don't push: the main session pushes after review.
+3. Done means: tests pass, committed on branch `issue-<n>-<slug>` (or the repo's own branch naming, if CLAUDE.md or CONTRIBUTING sets one). Don't push: the main session pushes after review.
 4. The progress-log block below, with the **absolute** log path filled in
 
 ```
 PROGRESS LOG (required). After each milestone, append one line:
-  echo "$(date +%H:%M) | <phase> | <one-line note>" >> <ABS_LOG_PATH>
+  printf '%s | %s | %s\n' "$(date +%H:%M)" "<phase>" "<one-line note>" >> <ABS_LOG_PATH>
+Use printf, not echo: zsh's echo turns a backslash in the note (\0, \b) into a control byte.
 Phase names are free-form. Typical: started, plan, tests, implementing, verifying, pr.
 For debugging: reproduce, isolate, root-cause, fix, verifying.
 Log at least every ~10 minutes of work. The last line must be DONE, BLOCKED or FAILED
@@ -82,7 +90,7 @@ milestones in your final report instead.
 
 - **Status request** ("status?", "how far are they?"): run `bash <this skill's base dir>/scripts/status.sh` from the main checkout (it finds `.parallel-work/agents` via git; an optional argument overrides the dir). Report from its output: one row per ticket with model/effort, state, last update, minutes quiet, plus tickets you did inline or that are queued. Model/effort is always the **implementer's**, also once review starts: the reviewer is always `opus` · `high`, so fold its `-review` log into the ticket's row as state (`in review`, `review PASS`, `fix round`) and never write `→ opus review` there. Never say "probably" about an agent's progress; the log either shows it or it doesn't.
 - **`STALE?`** (no log line for 15+ minutes): check activity with `git -C <worktree> status --short` and `git -C <worktree> diff --stat`. Changes still appearing: report it as working, just not logging. Nothing for 30+ minutes: tell the user and offer to stop it and re-dispatch one tier up.
-- **On each completion notification:** run the tests inside its worktree, and check that `git -C <worktree> diff --stat <base>...HEAD` stays within the ticket's scope (`<base>` = the default branch, from `gh repo view --json defaultBranchRef`). If its own report admits it skipped or changed an acceptance criterion, send it straight back with SendMessage; don't spend a review on a known gap. Give a short update on that ticket only (what finished, what happens next), then go to section 5. No status table here: show it only on a status request, and once when the last agent of the batch has finished. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
+- **On each completion notification:** check that `git -C <worktree> diff --stat <base>...HEAD` stays within the ticket's scope (`<base>` = the default branch, from `gh repo view --json defaultBranchRef`). If its own report admits it skipped or changed an acceptance criterion, send it straight back with SendMessage; don't spend a review on a known gap. Otherwise start the tests inside its worktree with `run_in_background: true` and dispatch its reviewer (section 5) in the same turn. Never wait on a test suite in the foreground: a 5-minute run blocks every other agent's report for 5 minutes. A notification saying the agent "is waiting on its own background work" is not a finish: wait for its report or a DONE line in its log. Give a short update on that ticket only (what finished, what happens next), then go to section 5. No status table here: show it only on a status request, and once when the last agent of the batch has finished. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
 - When a slot frees up, start the next queued ticket (route it first). When the queue is empty and the user asked to continue, go back to step 1.
 
 ## 5. Review, then ship
@@ -104,8 +112,12 @@ Reply: first line PASS or CHANGES, then at most 10 findings as
 
 Give the reviewer the acceptance criteria and the diff, **not** the implementer's summary: it should judge the code, not the story.
 
-- **PASS (ship):** if the user or CLAUDE.md asked for pushes or PRs, push the branch and open the PR (`Closes #<n>`). Otherwise report the branch as ready to push. Either way, then `git worktree remove <worktree>` (the branch and its commits stay).
-- **CHANGES:** send the findings to the **original implementer** with SendMessage (it still has its context), and have it fix, commit and report. Its fix-round lines go in the same log (a line after DONE just shows it as running again). Then send the new commits to the **same reviewer** with SendMessage to re-check.
+- **PASS (ship), once your background test run is green too:** if the user or CLAUDE.md asked for pushes or PRs, push the branch and open the PR (`Closes #<n>`). Otherwise report the branch as ready to push. Either way, then clean up the worktree (the ticket branch and its commits stay):
+  ```bash
+  git worktree remove <worktree> && git branch -d worktree-agent-<id>
+  ```
+  `worktree-agent-<id>` is the branch Claude Code created for the worktree; without the delete these pile up. If `remove` says the worktree is **locked**, Claude Code is still holding it for that agent: leave it, and when the batch ends run `git worktree unlock <worktree>` and the two commands above.
+- **CHANGES:** send the findings to the **original implementer** with SendMessage (it still has its context), and have it fix, commit and report. Its fix-round lines go in the same log (a line after DONE just shows it as running again). Then send the **same reviewer** the new commit range (`git -C <worktree> diff <old-head>..HEAD`) and its open findings with SendMessage to re-check. Leave out the implementer's account of the fix, as in the first review.
 - **Any CHANGES on the re-check:** stop and tell the user, with the open findings, the unpushed branch, and the options: they clarify, you re-dispatch the implementer one tier up, or they take it over. No third round without their answer.
 
 ## Common Mistakes
@@ -123,3 +135,5 @@ Give the reviewer the acceptance criteria and the diff, **not** the implementer'
 | Status table shows the reviewer's model, or a separate review row | Implementer's model/effort; review goes in the state column |
 | Status table after every completion notification | Short update; the table only on request or when the batch is done |
 | Pushing or opening a PR before review passes | Implementers never push; you push after PASS |
+| Waiting on a test suite in the foreground | `run_in_background: true`, reviewer dispatched in the same turn |
+| `git worktree remove` alone | Also `git branch -d worktree-agent-<id>`; a locked worktree waits for the batch's end |
