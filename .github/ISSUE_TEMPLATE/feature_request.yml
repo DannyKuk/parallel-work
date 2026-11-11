@@ -1,0 +1,18 @@
+name: Feature or routing idea
+description: Suggest a change to routing, review, status or anything else
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What happened in a real session that made you want this?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you change?
+      description: For routing ideas, say which tickets should go to which model and effort.
+    validations:
+      required: true

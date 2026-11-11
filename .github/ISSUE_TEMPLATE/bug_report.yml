@@ -1,0 +1,49 @@
+name: Bug report
+description: The skill or status.sh did something wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you ask for, what did the skill do, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Plan table, status output or agent log
+      description: Paste whatever shows the problem. Remove anything private first.
+      render: text
+  - type: input
+    id: claude-code
+    attributes:
+      label: Claude Code version
+      description: Output of `claude --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows (Git Bash)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Main session model
+      description: e.g. Opus, Sonnet
+  - type: dropdown
+    id: agents
+    attributes:
+      label: Agent types installed?
+      description: Are `parallel-implementer` and `parallel-reviewer` linked in `~/.claude/agents/`?
+      options:
+        - "Yes"
+        - "No (general-purpose fallback)"
+        - Not sure
