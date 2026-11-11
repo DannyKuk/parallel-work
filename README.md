@@ -158,4 +158,4 @@ Some sandbox setups block writes outside the agent's worktree. The agent then ke
 
 ## License
 
-[MIT](LICENSE). Contributions and issues are welcome.
+[MIT](LICENSE). Contributions and issues are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
