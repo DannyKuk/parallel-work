@@ -22,7 +22,7 @@ Thanks for helping out. Bug reports, routing ideas and fixes are all welcome.
    ```
 
 3. Start a **new** Claude Code session, because running sessions keep the version they started with. Use a scratch repo that has two or three small GitHub issues.
-4. Ask for parallel work ("do #1 and #2 in parallel"), then check:
+4. Ask for parallel work ("do #1 and #2 in parallel", or `/parallel-work 1 2`), then check:
    - The plan table routes each ticket the way you expect.
    - Logs show up in `.parallel-work/agents/`.
    - `status?` reports one row per ticket.
