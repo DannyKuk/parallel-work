@@ -119,12 +119,20 @@ Requires `git` and the [GitHub CLI](https://cli.github.com) (`gh`), logged in to
 
 ## Usage
 
-The skill activates only when you ask for parallel work. A plain "let's continue" leaves it out.
+The skill activates only when you ask for parallel work or run `/parallel-work`. A plain "let's continue" leaves it out.
 
 ```text
 > Let's continue with our tickets, work in parallel when possible
 > Do #12, #13 and #14 at the same time with subagents
 > status?
+```
+
+Or run it directly as a slash command:
+
+```text
+> /parallel-work                  pick tickets from the open issues
+> /parallel-work 12 13 14         exactly these issues
+> /parallel-work status           the status table
 ```
 
 ## Customize

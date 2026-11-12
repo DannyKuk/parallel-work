@@ -12,6 +12,8 @@ Work a ticket backlog with background subagents, where **you pick each subagent'
 
 This skill is your explicit instruction to set `model` and `effort` on every Agent call. Leaving them out hands every task the main session's model and effort, which is the failure this skill exists to fix.
 
+Invoked as `/parallel-work <args>`: issue numbers (`12 14 15`, `#12 #14`) are the batch: fetch just those with `gh issue view`, then continue at section 1, point 2 (shared files, cap). `status` is a status request (section 4). Any other text is the user's request. No args: start at step 1.
+
 ## 1. Pick the batch
 
 1. `gh issue list --state open --json number,title,labels,assignees,body --limit 30`. Skip issues assigned to someone else or labeled blocked/in-progress.
