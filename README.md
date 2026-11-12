@@ -81,6 +81,7 @@ Implementers run on the cheapest model that fits. Every code change is then chec
 - **At most 5 subagents at once**, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest are queued and start as slots free up.
 - **Each agent gets its own git worktree**, so parallel edits never collide.
 - **Nothing is pushed before the review passes.** Implementers only commit. The main session pushes, and opens a PR only if you've asked for PRs (in the session or in `CLAUDE.md`).
+- **One batch, then a handoff.** When every ticket is shipped or waiting on you, you get the status table once and per ticket the PR or branch and what's still open. Then it stops. It doesn't pull new tickets on its own, also not on a plain "continue". For the next batch it suggests a `/clear`, because the logs, branches and PRs carry the state.
 
 ## Agent types
 
@@ -148,6 +149,12 @@ You can, by editing the routing table. Smaller models finish easy tickets faster
 <summary><b>My session runs on Sonnet. Does routing still work?</b></summary>
 <br>
 Yes. Every subagent gets its model and effort set explicitly, so a hard ticket can still go to Opus while your main session stays on Sonnet.
+</details>
+
+<details>
+<summary><b>Can I pick up a batch after <code>/clear</code> or in a new session?</b></summary>
+<br>
+Yes. Ask for status or to continue the parallel work. The main session rebuilds the state from the logs, the worktrees and your open PRs, leaves running agents alone, and re-dispatches what's unfinished. Review findings are saved next to the logs, so a fix round can carry on with a new agent.
 </details>
 
 <details>
