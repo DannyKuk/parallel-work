@@ -94,7 +94,7 @@ milestones in your final report instead.
 - **`STALE?`** (no log line for 15+ minutes): check activity with `git -C <worktree> status --short` and `git -C <worktree> diff --stat`. Changes still appearing: report it as working, just not logging. Nothing for 30+ minutes: tell the user and offer to stop it and re-dispatch one tier up.
 - **On each completion notification:** check that `git -C <worktree> diff --stat <base>...HEAD` stays within the ticket's scope (`<base>` = the default branch, from `gh repo view --json defaultBranchRef`). If its own report admits it skipped or changed an acceptance criterion, send it straight back with SendMessage; don't spend a review on a known gap. Otherwise start the tests inside its worktree with `run_in_background: true` and dispatch its reviewer (section 5) in the same turn. Never wait on a test suite in the foreground: a 5-minute run blocks every other agent's report for 5 minutes. A notification saying the agent "is waiting on its own background work" is not a finish: wait for its report or a DONE line in its log. Give a short update on that ticket only (what finished, what happens next), then go to section 5. No status table here: show it only on a status request and at batch end. BLOCKED or FAILED: re-route one tier up and re-dispatch with what was learned.
 - When a slot frees up, start the next queued ticket (route it first).
-- **Batch end** (every ticket shipped or waiting on the user): clean up the locked worktrees (section 5), show the status table once, then a handoff: per ticket the PR link or branch, and what is still open and who it waits on. Then stop. Don't pull new tickets on your own, also not on a plain "continue". If the user asks for more tickets, suggest a `/clear` first (logs, branches and PRs carry the state, the old context only costs tokens), then start at section 1.
+- **Batch end** (every ticket shipped or waiting on the user): clean up the locked worktrees (section 5), show the status table once, then a handoff: per ticket the PR link or branch, and what is still open and who it waits on. Run `git merge-tree --write-tree --name-only <branch-a> <branch-b>` for each pair of shipped branches and name the pairs that conflict, so the user merges one first and asks for the other to be updated (merge check). Then stop. Don't pull new tickets on your own, also not on a plain "continue". If the user asks for more tickets, suggest a `/clear` first (logs, branches and PRs carry the state, the old context only costs tokens), then start at section 1.
 
 ## 5. Review, then ship
 
@@ -115,19 +115,25 @@ Reply: first line PASS or CHANGES, then at most 10 findings as
 
 Give the reviewer the acceptance criteria and the diff, **not** the implementer's summary: it should judge the code, not the story.
 
-- **PASS (ship), once your background test run is green too:** if the user or CLAUDE.md asked for pushes or PRs, push the branch and open the PR (`Closes #<n>`). Otherwise report the branch as ready to push. Either way, then clean up the worktree (the ticket branch and its commits stay):
+- **PASS (ship), once your background test run is green too:** run the merge check (below) and ship only when it's clean. If the user or CLAUDE.md asked for pushes or PRs, push the branch and open the PR (`Closes #<n>`). Otherwise report the branch as ready to push. Either way, then clean up the worktree (the ticket branch and its commits stay):
   ```bash
   git worktree remove <worktree> && git branch -d worktree-agent-<id>
   ```
   `worktree-agent-<id>` is the branch Claude Code created for the worktree; without the delete these pile up. If `remove` says the worktree is **locked**, Claude Code is still holding it for that agent: leave it, and when the batch ends run `git worktree unlock <worktree>` and the two commands above.
 - **CHANGES:** save the reviewer's reply to `$ROOT/.parallel-work/agents/<slug>-findings.md` (so a later session can pick it up), then send the findings to the **original implementer** with SendMessage (it still has its context), and have it fix, commit and report. Its fix-round lines go in the same log (a line after DONE just shows it as running again). Then send the **same reviewer** the new commit range (`git -C <worktree> diff <old-head>..HEAD`) and its open findings with SendMessage to re-check. Leave out the implementer's account of the fix, as in the first review.
 - **Any CHANGES on the re-check:** stop and tell the user, with the open findings, the unpushed branch, and the options: they clarify, you re-dispatch the implementer one tier up, or they take it over. No third round without their answer.
+- **Merge check**, before every push, and for the batch's other open PRs whenever one of them merges:
+  ```bash
+  git fetch -q origin <base> && git merge-tree --write-tree --name-only origin/<base> issue-<n>-<slug>
+  ```
+  Exit 0 is clean. Exit 1 with file names after the tree id is a conflict, usually with a sibling ticket that merged first (exit 1 with "not something we can merge" is a wrong ref). Don't resolve it yourself: the ticket's implementer (SendMessage; if it's gone or its worktree was removed, a new one at the ticket's tier on the existing branch, as in section 6) merges `origin/<base>` into the branch (no rebase, so no force-push), keeps both sides' intent, runs the tests and commits. Then the same reviewer (a fresh one if it's gone) checks only the resolution, `git -C <worktree> show --remerge-diff <merge-commit>`, and you push. That's not a fix round, but CHANGES on it go to the user.
 
 ## 6. Picking up a batch in a new session
 
 After `/clear` or in a new session, the earlier agents can't be reached with SendMessage, and you remember nothing. Rebuild the state from `status.sh`, `git worktree list` and `gh pr list --author @me`, and keep the logs where they are (same batch). A log that still gets new lines is a live agent: leave it alone. For every other unfinished ticket:
 
 - **Open findings** (`<slug>-findings.md`): the branch is usually still checked out in the old worktree, and a new agent's worktree can't check it out then (it ends on a detached HEAD). If `git -C <old-worktree> status --short` is empty, remove it as in section 5 (`git worktree unlock` first if locked). If it has uncommitted changes, tell the user and leave that ticket. Then dispatch a new implementer at the ticket's tier with the section 3 brief, plus: check out the existing branch `issue-<n>-<slug>` (don't create it), fix exactly these findings (the file's content). Its review is a fresh reviewer with the full `<base>...HEAD` diff and the old findings to re-check. That counts as the re-check round of section 5.
+- **Open PR of the batch:** run the merge check (section 5); a conflict gets a new implementer on the existing branch, as above.
 - **No findings, no live agent, no DONE:** the run died. Re-dispatch it as in section 3, on its existing branch if it has commits.
 
 ## Common Mistakes
@@ -148,4 +154,6 @@ After `/clear` or in a new session, the earlier agents can't be reached with Sen
 | Waiting on a test suite in the foreground | `run_in_background: true`, reviewer dispatched in the same turn |
 | Pulling a new batch when the queue empties | Batch end: handoff, then stop. More tickets only on request, after a `/clear` |
 | Dispatching a fixer while its branch is checked out in the old worktree | Remove the clean old worktree first (section 6) |
+| Pushing without checking the branch against the current base | `git fetch`, then `git merge-tree` (section 5); conflicts go to the implementer |
+| Resolving a sibling conflict yourself, or by rebase | The implementer merges `origin/<base>`; the reviewer checks `--remerge-diff` |
 | `git worktree remove` alone | Also `git branch -d worktree-agent-<id>`; a locked worktree waits for the batch's end |
