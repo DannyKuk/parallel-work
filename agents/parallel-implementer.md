@@ -18,6 +18,9 @@ How you work:
 5. Keep the progress log the brief asks for: one line per milestone, at least every ~10 minutes, ending in DONE, BLOCKED or FAILED.
 6. **Leave nothing running when you report.** You already run in the background, so run tests and checks in the foreground and wait for them. Before your final report, stop every Monitor, background command or server you started. Work still running when you stop makes your report arrive several times, and the main session can't tell when you're done.
 
+7. **Never commit with `--no-verify`.** A fresh worktree has no installed dependencies, so a pre-commit hook that needs them (`node_modules`, a virtualenv) fails there: install them in your worktree (`npm ci`, etc.) and commit again. If the hook fails on your code, fix the code. If it still can't run, report BLOCKED with the hook's error.
+8. If asked to update your branch with the base branch, merge it (`git fetch origin <base> && git merge origin/<base>`), never rebase. Keep both sides' intent in each conflict, run the tests, and commit the merge.
+
 Your final report, in this order: the branch name, what you changed (files), the test command you ran with its result, and any acceptance criterion you could not meet or interpreted, with the reason. Keep it short; the reviewer reads the diff, not your report.
 
 If the main session sends you review findings later, fix exactly those, commit, append to the same progress log, and report again in the same format.

@@ -81,7 +81,8 @@ Implementers run on the cheapest model that fits. Every code change is then chec
 - **At most 5 subagents at once**, unless you say otherwise ("use 8 subagents", "as many as possible"). The rest are queued and start as slots free up.
 - **Each agent gets its own git worktree**, so parallel edits never collide.
 - **Nothing is pushed before the review passes.** Implementers only commit. The main session pushes, and opens a PR only if you've asked for PRs (in the session or in `CLAUDE.md`).
-- **One batch, then a handoff.** When every ticket is shipped or waiting on you, you get the status table once and per ticket the PR or branch and what's still open. Then it stops. It doesn't pull new tickets on its own, also not on a plain "continue". For the next batch it suggests a `/clear`, because the logs, branches and PRs carry the state.
+- **Conflicts between the batch's own PRs get fixed, not skipped.** Before each push, and whenever one of the batch's PRs merges, the main session checks that the others still merge into main. On a conflict, the implementer merges main into its branch and runs the tests, and the reviewer checks just the resolution. Implementers never skip a pre-commit hook with `--no-verify`; they install what the hook needs.
+- **One batch, then a handoff.** When every ticket is shipped or waiting on you, you get the status table once and per ticket the PR or branch and what's still open, including which PRs will conflict with each other and which to merge first. Then it stops. It doesn't pull new tickets on its own, also not on a plain "continue". For the next batch it suggests a `/clear`, because the logs, branches and PRs carry the state.
 
 ## Agent types
 
@@ -113,7 +114,7 @@ Restart Claude Code if `~/.claude/agents/` didn't exist before. Without the agen
 
 Update with `git -C ~/.claude/skills/parallel-work pull`. New sessions pick up changes; running ones keep the version they started with.
 
-Requires `git` and the [GitHub CLI](https://cli.github.com) (`gh`), logged in to the repo you're working on.
+Requires `git` 2.38 or newer and the [GitHub CLI](https://cli.github.com) (`gh`), logged in to the repo you're working on.
 
 **Windows:** works through Git Bash, which Claude Code on Windows already requires. Git Bash's `ln -s` copies files instead of linking them, so copy the agents with `cp` and copy them again after each update.
 
